@@ -1,0 +1,56 @@
+{
+  "customer": {
+    "customer_code": "CUST-001",
+    "name": "Coconut Farmer",
+    "email": "demo@treehealth.com"
+  },
+  "tree": {
+    "tree_code": "TREE-001",
+    "name": "Coconut Palm #1",
+    "species": "King Coconut (Cocos nucifera)",
+    "location": "East Plot - Sector 4"
+  },
+  "device": {
+    "device_code": "THM-0001",
+    "status": "OFFLINE",
+    "last_seen": null,
+    "firmware_version": "v2.0.0-FSR",
+    "battery_level": null,
+    "signal_strength": null,
+    "last_tree_status": "NOT_CHECKED",
+    "last_check_time": null
+  },
+  "schedules": [
+    {
+      "id": "1",
+      "time": "08:00",
+      "enabled": true
+    },
+    {
+      "id": "2",
+      "time": "10:00",
+      "enabled": true
+    },
+    {
+      "id": "3",
+      "time": "12:00",
+      "enabled": true
+    },
+    {
+      "id": "4",
+      "time": "14:00",
+      "enabled": true
+    },
+    {
+      "id": "5",
+      "time": "16:00",
+      "enabled": true
+    },
+    {
+      "id": "6",
+      "time": "18:00",
+      "enabled": true
+    }
+  ],
+  "check_history": []
+}

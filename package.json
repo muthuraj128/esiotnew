@@ -1,0 +1,11 @@
+{
+  "name": "tree-health-monitoring-system",
+  "version": "1.0.0",
+  "description": "Complete Smart Tree Health Monitoring System (React + Express + MQTT + Supabase + ESP32)",
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "start": "cd backend && npm start",
+    "build": "cd frontend && npm run build"
+  }
+}
