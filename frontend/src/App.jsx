@@ -12,7 +12,8 @@ import LiveTestModal from './components/LiveTestModal';
 import HardwareGuideModal from './components/HardwareGuideModal';
 import LoginModal from './components/LoginModal';
 
-const API_BASE = import.meta.env.VITE_BACKEND_URL ? import.meta.env.VITE_BACKEND_URL.replace(/\/$/, '') + '/api' : '/api';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://esiotnew.onrender.com';
+const API_BASE = BACKEND_URL.replace(/\/$/, '') + '/api';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(true);

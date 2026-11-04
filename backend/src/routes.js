@@ -30,6 +30,11 @@ subscribeEvents((eventType, data) => {
   broadcastSSE(eventType, data);
 });
 
+// GET /api
+router.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'Tree Health API is running', timestamp: new Date().toISOString() });
+});
+
 // GET /api/health
 router.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
