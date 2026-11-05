@@ -8,6 +8,7 @@ The system utilizes an **ESP32 microcontroller**, a **DC Motor / Vibration Actua
 
 ---
 
+
 ## 🏗️ System Architecture Overview
 
 ```text
