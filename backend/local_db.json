@@ -12,61 +12,22 @@
   },
   "device": {
     "device_code": "THM-0001",
-    "status": "ONLINE",
-    "last_seen": "2026-11-05T01:40:00.000Z",
+    "status": "OFFLINE",
+    "last_seen": null,
     "firmware_version": "v2.0.0-FSR",
-    "battery_level": 96,
-    "signal_strength": -62,
-    "last_tree_status": "HEALTHY",
-    "last_check_time": "2026-11-05T01:30:00.000Z",
-    "last_fsr_value": 380
+    "battery_level": null,
+    "signal_strength": null,
+    "last_tree_status": null,
+    "last_check_time": null,
+    "last_fsr_value": null
   },
   "schedules": [
-    {
-      "id": "1",
-      "time": "08:00",
-      "enabled": true
-    },
-    {
-      "id": "2",
-      "time": "10:00",
-      "enabled": true
-    },
-    {
-      "id": "3",
-      "time": "12:00",
-      "enabled": true
-    },
-    {
-      "id": "4",
-      "time": "14:00",
-      "enabled": true
-    },
-    {
-      "id": "5",
-      "time": "16:00",
-      "enabled": true
-    },
-    {
-      "id": "6",
-      "time": "18:00",
-      "enabled": true
-    }
+    { "id": "1", "time": "08:00", "enabled": false },
+    { "id": "2", "time": "10:00", "enabled": false },
+    { "id": "3", "time": "12:00", "enabled": false },
+    { "id": "4", "time": "14:00", "enabled": false },
+    { "id": "5", "time": "16:00", "enabled": false },
+    { "id": "6", "time": "18:00", "enabled": false }
   ],
-  "check_history": [
-    {
-      "id": "hist-init-001",
-      "device_code": "THM-0001",
-      "tree_code": "TREE-001",
-      "check_type": "MANUAL",
-      "result": "HEALTHY",
-      "detected": false,
-      "detection_time": 30.0,
-      "duration": 30.0,
-      "fsr_value": 380,
-      "started_at": "2026-11-05T01:29:30.000Z",
-      "completed_at": "2026-11-05T01:30:00.000Z",
-      "notes": "30s scan completed cleanly. All FSR readings remained normal (Peak: 380 <= 1000). Motor turned off."
-    }
-  ]
+  "check_history": []
 }
