@@ -96,7 +96,9 @@ export default function DashboardView({
             {!isOnline
               ? 'ESP32 hardware disconnected'
               : (hasChecked
-                ? (isHealthy ? 'FSR readings normal (<= 1000)' : 'FSR reading exceeded threshold (> 1000)')
+                ? (isHealthy
+                  ? `Normal Peak FSR: ${latestCheck?.fsr_value ?? '<= 1000'}`
+                  : `⚠️ Alert Peak FSR: ${latestCheck?.fsr_value ?? '> 1000'} (Exceeded 1000)`)
                 : 'Connect device & run first inspection')}
           </div>
 
@@ -164,7 +166,7 @@ export default function DashboardView({
           </div>
 
           <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #EEF2EF', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Response: {latestCheck ? (latestCheck.detected ? `FSR peak > 1000 at ${latestCheck.detection_time}s` : 'Clean 30s scan (FSR <= 1000)') : 'N/A'}
+            Response: {latestCheck ? (latestCheck.detected ? `Peak FSR: ${latestCheck.fsr_value ?? '> 1000'} at ${latestCheck.detection_time}s` : `Peak FSR: ${latestCheck.fsr_value ?? '<= 1000'} (Clean scan)`) : 'N/A'}
           </div>
         </div>
 
@@ -260,8 +262,8 @@ export default function DashboardView({
                 ? 'ESP32 hardware device (THM-0001) is currently disconnected. Power on your physical ESP32 board to transmit telemetry and perform scans.'
                 : (hasChecked
                   ? (isHealthy
-                    ? '30-second inspection completed cleanly with motor active. All FSR readings remained normal (<= 1000). Tree health condition is healthy.'
-                    : 'FSR reading increased more than 1000 during the 30-second motor evaluation window. Tree is evaluated as UNHEALTHY.')
+                    ? `30-second inspection completed cleanly with motor active. All FSR readings remained normal (Peak FSR: ${latestCheck?.fsr_value ?? '<= 1000'}). Tree health condition is healthy.`
+                    : `FSR reading increased more than 1000 threshold (Peak FSR: ${latestCheck?.fsr_value ?? '> 1000'}) during the 30-second motor evaluation window. Tree is evaluated as UNHEALTHY.`)
                   : 'ESP32 hardware is connected online. Click RUN HARDWARE INSPECTION below to trigger the 30-second motor and FSR scan.')}
             </p>
           </div>
