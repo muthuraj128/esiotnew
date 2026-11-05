@@ -12,13 +12,14 @@
   },
   "device": {
     "device_code": "THM-0001",
-    "status": "OFFLINE",
-    "last_seen": null,
+    "status": "ONLINE",
+    "last_seen": "2026-11-05T01:40:00.000Z",
     "firmware_version": "v2.0.0-FSR",
-    "battery_level": null,
-    "signal_strength": null,
-    "last_tree_status": "NOT_CHECKED",
-    "last_check_time": null
+    "battery_level": 96,
+    "signal_strength": -62,
+    "last_tree_status": "HEALTHY",
+    "last_check_time": "2026-11-05T01:30:00.000Z",
+    "last_fsr_value": 380
   },
   "schedules": [
     {
@@ -52,5 +53,20 @@
       "enabled": true
     }
   ],
-  "check_history": []
+  "check_history": [
+    {
+      "id": "hist-init-001",
+      "device_code": "THM-0001",
+      "tree_code": "TREE-001",
+      "check_type": "MANUAL",
+      "result": "HEALTHY",
+      "detected": false,
+      "detection_time": 30.0,
+      "duration": 30.0,
+      "fsr_value": 380,
+      "started_at": "2026-11-05T01:29:30.000Z",
+      "completed_at": "2026-11-05T01:30:00.000Z",
+      "notes": "30s scan completed cleanly. All FSR readings remained normal (Peak: 380 <= 1000). Motor turned off."
+    }
+  ]
 }
