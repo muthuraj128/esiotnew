@@ -5,6 +5,10 @@ import { updateDeviceStatus, addHistoryRecord } from './database.js';
 let mqttClient = null;
 const eventListeners = new Set();
 
+// Track whether a CHECK NOW test is currently expected
+let isTestExpected = false;
+let testExpectedTimer = null;
+
 export function initMqtt(onResultCallback, onStatusCallback) {
   console.log(`🔌 Connecting to MQTT Broker at ${config.mqttBrokerUrl}...`);
   
@@ -17,9 +21,11 @@ export function initMqtt(onResultCallback, onStatusCallback) {
   mqttClient.on('connect', () => {
     console.log('✅ Connected to MQTT Broker!');
     
-    // Subscribe to topics
     const statusTopic = `devices/${config.deviceId}/status`;
     const resultTopic = `devices/${config.deviceId}/result`;
+    
+    // Clear any stale retained result message on the public broker so it does not ghost-trigger
+    mqttClient.publish(resultTopic, '', { retain: true, qos: 1 });
     
     mqttClient.subscribe([statusTopic, resultTopic], (err) => {
       if (err) {
@@ -30,9 +36,17 @@ export function initMqtt(onResultCallback, onStatusCallback) {
     });
   });
 
-  mqttClient.on('message', async (topic, payload) => {
+  mqttClient.on('message', async (topic, payload, packet) => {
     try {
-      const messageStr = payload.toString();
+      // 1. REJECT RETAINED (OLD/STALE) MESSAGES CACHED BY PUBLIC BROKER
+      if (packet && packet.retain) {
+        console.log(`⚠️ Ignored stale retained MQTT message on [${topic}]`);
+        return;
+      }
+
+      const messageStr = payload.toString().trim();
+      if (!messageStr) return; // Ignore empty payloads (such as retain-clearing messages)
+
       let data = {};
       try {
         data = JSON.parse(messageStr);
@@ -57,6 +71,16 @@ export function initMqtt(onResultCallback, onStatusCallback) {
       } 
       else if (topic.endsWith('/result')) {
         // Test Result from ESP32
+        // Only accept result if a check was initiated by CHECK NOW, or if explicitly fresh
+        if (!isTestExpected) {
+          console.warn('⚠️ Received /result but NO CHECK NOW command was initiated. Ignoring random/stray result.');
+          return;
+        }
+
+        // Test completed: clear expected flag
+        isTestExpected = false;
+        if (testExpectedTimer) clearTimeout(testExpectedTimer);
+
         console.log('🌴 30-Second Motor & FSR Test Result Received from ESP32:', data);
         
         const record = await addHistoryRecord({
@@ -97,6 +121,15 @@ export function initMqtt(onResultCallback, onStatusCallback) {
 }
 
 export function sendCheckNowCommand(checkType = 'MANUAL') {
+  // Only expect result when user explicitly triggers check now
+  isTestExpected = true;
+  if (testExpectedTimer) clearTimeout(testExpectedTimer);
+  // Allow 45s maximum window (30s test duration + 15s network latency)
+  testExpectedTimer = setTimeout(() => {
+    isTestExpected = false;
+    console.log('⏱️ Check Now 45s window expired. Disarming result listener.');
+  }, 45000);
+
   if (!mqttClient || !mqttClient.connected) {
     console.warn('⚠️ MQTT client not connected. Command will be queued by broker or virtual device.');
   }
@@ -135,3 +168,4 @@ function notifyListeners(eventType, payload) {
     }
   }
 }
+
