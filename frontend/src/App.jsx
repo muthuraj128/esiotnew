@@ -154,6 +154,18 @@ export default function App() {
     }, 31000);
   };
 
+  // Action: Reset Status / Clear Alert
+  const handleResetStatus = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/reset-status`, { method: 'POST' });
+      await res.json();
+      fetchDashboardData();
+      fetchHistoryData();
+    } catch (err) {
+      console.error('Reset status error:', err);
+    }
+  };
+
   // Action: Save Schedules
   const handleSaveSchedules = async (updatedSchedules) => {
     try {
@@ -221,6 +233,7 @@ export default function App() {
               onCheckNow={handleCheckNow}
               onRefresh={() => { fetchDashboardData(); fetchHistoryData(); }}
               onNavigate={setActiveTab}
+              onResetStatus={handleResetStatus}
             />
           )}
 
