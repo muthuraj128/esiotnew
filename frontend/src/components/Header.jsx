@@ -102,15 +102,16 @@ export default function Header({
         {/* Primary Action Button: CHECK NOW */}
         <button
           onClick={onCheckNow}
-          disabled={isTesting || !isDeviceOnline}
+          disabled={isTesting}
           className="btn btn-primary"
           style={{
             height: '34px',
             padding: '0 0.85rem',
             fontSize: '0.78rem',
-            boxShadow: '0 2px 8px rgba(23, 107, 77, 0.25)'
+            boxShadow: '0 2px 8px rgba(23, 107, 77, 0.25)',
+            opacity: isTesting ? 0.8 : 1
           }}
-          title={!isDeviceOnline ? 'Connect physical ESP32 to trigger inspection' : 'Trigger inspection scan'}
+          title={isTesting ? 'Inspection in progress' : 'Trigger inspection scan'}
         >
           {isTesting ? (
             <>
