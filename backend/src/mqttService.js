@@ -48,7 +48,8 @@ export function initMqtt(onResultCallback, onStatusCallback) {
           status: 'ONLINE',
           battery_level: data.battery !== undefined ? data.battery : (data.online ? 100 : null),
           signal_strength: data.rssi !== undefined ? data.rssi : null,
-          firmware_version: data.firmware || 'v2.0.0-FSR'
+          firmware_version: data.firmware || 'v2.0.0-FSR',
+          live_fsr: data.fsr_baseline !== undefined ? data.fsr_baseline : (data.fsr !== undefined ? data.fsr : null)
         });
 
         if (onStatusCallback) onStatusCallback(updatedDev);
