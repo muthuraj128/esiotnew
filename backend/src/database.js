@@ -20,7 +20,20 @@ if (config.supabaseUrl && config.supabaseKey) {
 
 const LOCAL_DB_PATH = path.resolve('local_db.json');
 
-// Clean initial data structure without fake pre-seeded data
+// Strict timeout wrapper for cloud database queries (2.5s max to prevent server hangs)
+async function withTimeout(promise, ms = 2500) {
+  let timer;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Database query timed out after ${ms}ms`)), ms);
+  });
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Initial data structure — no pre-seeded scan history. History only grows via real CHECK NOW scans.
 const initialData = {
   customer: {
     customer_code: 'CUST-001',
@@ -35,39 +48,25 @@ const initialData = {
   },
   device: {
     device_code: 'THM-0001',
-    status: 'ONLINE',
-    last_seen: new Date().toISOString(),
+    status: 'OFFLINE',
+    last_seen: null,
     firmware_version: 'v2.0.0-FSR',
-    battery_level: 96,
-    signal_strength: -62,
-    last_tree_status: 'HEALTHY',
-    last_check_time: new Date(Date.now() - 1800000).toISOString(),
-    last_fsr_value: 380
+    battery_level: null,
+    signal_strength: null,
+    last_tree_status: null,   // null = no scan has ever been run
+    last_check_time: null,
+    last_fsr_value: null
   },
   schedules: [
-    { id: '1', time: '08:00', enabled: true },
-    { id: '2', time: '10:00', enabled: true },
-    { id: '3', time: '12:00', enabled: true },
-    { id: '4', time: '14:00', enabled: true },
-    { id: '5', time: '16:00', enabled: true },
-    { id: '6', time: '18:00', enabled: true }
+    { id: '1', time: '08:00', enabled: false },
+    { id: '2', time: '10:00', enabled: false },
+    { id: '3', time: '12:00', enabled: false },
+    { id: '4', time: '14:00', enabled: false },
+    { id: '5', time: '16:00', enabled: false },
+    { id: '6', time: '18:00', enabled: false }
   ],
-  check_history: [
-    {
-      id: 'hist-init-001',
-      device_code: 'THM-0001',
-      tree_code: 'TREE-001',
-      check_type: 'MANUAL',
-      result: 'HEALTHY',
-      detected: false,
-      detection_time: 30.0,
-      duration: 30.0,
-      fsr_value: 380,
-      started_at: new Date(Date.now() - 1830000).toISOString(),
-      completed_at: new Date(Date.now() - 1800000).toISOString(),
-      notes: 'Initial 30s evaluation completed. FSR reading <= 1000. Tree healthy.'
-    }
-  ]
+  // Empty — scan records are ONLY added when CHECK NOW is explicitly triggered and ESP32 responds
+  check_history: []
 };
 
 function readLocalDb() {
@@ -94,11 +93,14 @@ function writeLocalDb(data) {
 export async function getDevice(deviceCode = 'THM-0001') {
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from('devices')
-        .select('*')
-        .eq('device_code', deviceCode)
-        .maybeSingle();
+      const { data, error } = await withTimeout(
+        supabase
+          .from('devices')
+          .select('*')
+          .eq('device_code', deviceCode)
+          .maybeSingle(),
+        2000
+      );
       if (!error && data) return data;
     } catch (e) {
       console.warn('Supabase getDevice fallback to local:', e.message);
@@ -119,10 +121,13 @@ export async function updateDeviceStatus(deviceCode, updateFields) {
 
   if (supabase) {
     try {
-      await supabase
-        .from('devices')
-        .update({ ...updateFields, last_seen: new Date().toISOString() })
-        .eq('device_code', deviceCode);
+      await withTimeout(
+        supabase
+          .from('devices')
+          .update({ ...updateFields, last_seen: new Date().toISOString() })
+          .eq('device_code', deviceCode),
+        2000
+      );
     } catch (e) {
       console.warn('Supabase updateDeviceStatus error:', e.message);
     }
@@ -162,19 +167,22 @@ export async function addHistoryRecord(record) {
 
   if (supabase) {
     try {
-      await supabase.from('check_history').insert([{
-        device_code: newRecord.device_code,
-        tree_code: newRecord.tree_code,
-        check_type: newRecord.check_type,
-        result: newRecord.result,
-        detected: newRecord.detected,
-        detection_time: newRecord.detection_time,
-        duration: newRecord.duration,
-        fsr_value: newRecord.fsr_value,
-        started_at: newRecord.started_at,
-        completed_at: newRecord.completed_at,
-        notes: newRecord.notes
-      }]);
+      await withTimeout(
+        supabase.from('check_history').insert([{
+          device_code: newRecord.device_code,
+          tree_code: newRecord.tree_code,
+          check_type: newRecord.check_type,
+          result: newRecord.result,
+          detected: newRecord.detected,
+          detection_time: newRecord.detection_time,
+          duration: newRecord.duration,
+          fsr_value: newRecord.fsr_value,
+          started_at: newRecord.started_at,
+          completed_at: newRecord.completed_at,
+          notes: newRecord.notes
+        }]),
+        2500
+      );
     } catch (e) {
       console.warn('Supabase addHistoryRecord error:', e.message);
     }
@@ -189,10 +197,13 @@ export async function getHistory(filterDays = null) {
 
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from('check_history')
-        .select('*')
-        .order('completed_at', { ascending: false });
+      const { data, error } = await withTimeout(
+        supabase
+          .from('check_history')
+          .select('*')
+          .order('completed_at', { ascending: false }),
+        2000
+      );
       if (!error && data) list = data;
     } catch (e) {
       console.warn('Supabase getHistory fallback:', e.message);
@@ -211,9 +222,12 @@ export async function getSchedules() {
   const db = readLocalDb();
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from('schedules')
-        .select('*');
+      const { data, error } = await withTimeout(
+        supabase
+          .from('schedules')
+          .select('*'),
+        2000
+      );
       if (!error && data && data.length > 0) return data;
     } catch (e) {
       console.warn('Supabase getSchedules fallback:', e.message);
@@ -252,20 +266,23 @@ export async function getDashboardSummary() {
   const history = await getHistory();
   const schedules = await getSchedules();
 
-  const latestCheck = (history && history.length > 0) ? history[0] : (db.check_history && db.check_history[0] ? db.check_history[0] : null);
+  // latestCheck is ONLY from real scan results — never from pre-seeded fake data
+  const latestCheck = (history && history.length > 0) ? history[0] : (db.check_history && db.check_history.length > 0 ? db.check_history[0] : null);
 
-  // Preserve the actual tree health status (HEALTHY or UNHEALTHY) - never overwrite it with DISCONNECTED
-  const currentTreeStatus = latestCheck?.result || (device.last_tree_status && device.last_tree_status !== 'NOT_CHECKED' ? device.last_tree_status : 'HEALTHY');
+  // Tree status comes ONLY from the latest real scan result.
+  // null means no scan has been run yet — dashboard will show "AWAITING SCAN"
+  const currentTreeStatus = latestCheck?.result || device.last_tree_status || null;
 
   // Calculate real ESP32 online state (offline if no heartbeat within last 45 seconds)
   const lastSeenMs = device.last_seen ? new Date(device.last_seen).getTime() : 0;
-  const isOnline = (Date.now() - lastSeenMs) < 45000;
+  const isOnline = device.last_seen ? (Date.now() - lastSeenMs) < 45000 : false;
 
   // Real Database connection status
   const isDbConnected = isSupabaseConnected || fs.existsSync(LOCAL_DB_PATH);
 
   const today = new Date();
-  const todayChecks = (history || []).filter(h => {
+  const allHistory = history || db.check_history || [];
+  const todayChecks = allHistory.filter(h => {
     const d = new Date(h.completed_at);
     return d.getDate() === today.getDate() &&
            d.getMonth() === today.getMonth() &&
@@ -281,12 +298,12 @@ export async function getDashboardSummary() {
       is_online: isOnline,
       status: isOnline ? 'ONLINE' : 'OFFLINE',
       last_tree_status: currentTreeStatus,
-      last_check_time: latestCheck?.completed_at || device.last_check_time || new Date().toISOString(),
-      last_fsr_value: latestCheck?.fsr_value ?? device.last_fsr_value ?? 380
+      last_check_time: latestCheck?.completed_at || device.last_check_time || null,
+      last_fsr_value: latestCheck?.fsr_value ?? device.last_fsr_value ?? null
     },
     latest_check: latestCheck,
     schedules: schedules,
-    history_count: (history || []).length || (db.check_history || []).length,
-    today_checks_completed: Math.max(todayChecks, (history && history.length > 0) ? 1 : (db.check_history?.length || 1))
+    history_count: allHistory.length,
+    today_checks_completed: todayChecks
   };
 }
