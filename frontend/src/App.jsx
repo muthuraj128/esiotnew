@@ -105,6 +105,7 @@ export default function App() {
           console.log('⚡ SSE Result Event Received:', record);
           setLatestTestResult(record);
           setIsTesting(false);
+          setIsTestModalOpen(false);
           fetchDashboardData();
           fetchHistoryData();
         } catch (err) {
@@ -132,7 +133,7 @@ export default function App() {
   const handleCheckNow = async () => {
     setIsTesting(true);
     setLatestTestResult(null);
-    setIsTestModalOpen(true);
+    setIsTestModalOpen(false); // Update directly in dashboard, do not show popup modal
 
     try {
       const res = await fetch(`${API_BASE}/check-now`, {
@@ -144,6 +145,13 @@ export default function App() {
     } catch (err) {
       console.error('Check Now error:', err);
     }
+
+    // Auto-refresh and finish testing state after the 30-second window completes
+    setTimeout(() => {
+      setIsTesting(false);
+      fetchDashboardData();
+      fetchHistoryData();
+    }, 31000);
   };
 
   // Action: Save Schedules
