@@ -3,8 +3,11 @@ import {
   getDashboardSummary,
   getHistory,
   getSchedules,
-  saveSchedules
+  saveSchedules,
+  addHistoryRecord,
+  updateDeviceStatus
 } from './database.js';
+import { config } from './config.js';
 import { sendCheckNowCommand, subscribeEvents } from './mqttService.js';
 import { setSimulatorConfig } from './virtualDevice.js';
 
@@ -60,6 +63,35 @@ router.post('/check-now', async (req, res) => {
       message: 'START_TEST command published to MQTT broker.',
       timestamp: new Date().toISOString()
     });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/reset-status (Clear alert and reset tree status to HEALTHY)
+router.post('/reset-status', async (req, res) => {
+  try {
+    const record = await addHistoryRecord({
+      device_code: config.deviceId,
+      tree_code: config.treeId,
+      check_type: 'MANUAL',
+      result: 'HEALTHY',
+      detected: false,
+      detection_time: 30.0,
+      duration: 30.0,
+      fsr_value: 380,
+      started_at: new Date(Date.now() - 30000).toISOString(),
+      notes: 'Status manually reset to Healthy after physical inspection.'
+    });
+
+    await updateDeviceStatus(config.deviceId, {
+      status: 'ONLINE',
+      last_tree_status: 'HEALTHY',
+      last_fsr_value: 380
+    });
+
+    broadcastSSE('result', record);
+    res.json({ success: true, data: record });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
