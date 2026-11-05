@@ -12,6 +12,7 @@ import {
   Play,
   RotateCw,
   XCircle,
+  CheckCircle2,
   Database,
   Server
 } from 'lucide-react';
@@ -21,7 +22,8 @@ export default function DashboardView({
   isTesting,
   onCheckNow,
   onRefresh,
-  onNavigate
+  onNavigate,
+  onResetStatus
 }) {
   const device = summary?.device;
   const tree = summary?.tree;
@@ -30,10 +32,15 @@ export default function DashboardView({
   const isOnline = device?.is_online;
   const isDbConnected = summary?.database_connected;
   
-  // Real Tree Health Status: ALWAYS reflect the last checked status (HEALTHY or UNHEALTHY)
-  const isUnhealthy = latestCheck?.result === 'UNHEALTHY' || device?.last_tree_status === 'UNHEALTHY';
+  // Real Tree Health Status: Determined strictly by the LATEST scan!
+  const currentStatus = latestCheck?.result || device?.last_tree_status || 'HEALTHY';
+  const isUnhealthy = currentStatus === 'UNHEALTHY';
   const isHealthy = !isUnhealthy;
   const treeStatus = isUnhealthy ? 'UNHEALTHY' : 'HEALTHY';
+
+  const peakFsr = latestCheck?.fsr_value ?? device?.last_fsr_value ?? (isUnhealthy ? 4095 : 380);
+  const scanTime = latestCheck?.completed_at || device?.last_check_time;
+  const detectionTime = latestCheck?.detection_time ?? (isUnhealthy ? 4.72 : 30.0);
 
   const formatTime = (isoStr) => {
     if (!isoStr) return 'No inspection recorded';
@@ -127,12 +134,12 @@ export default function DashboardView({
 
           <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
             {isHealthy
-              ? `Normal Peak FSR: ${latestCheck?.fsr_value ?? device?.last_fsr_value ?? 380} (Stable <= 1000)`
-              : `⚠️ Alert Peak FSR: ${latestCheck?.fsr_value ?? device?.last_fsr_value ?? 1420} (Exceeded 1000)`}
+              ? `Normal Peak FSR: ${peakFsr} (Stable <= 1000)`
+              : `⚠️ Alert Peak FSR: ${peakFsr} (Exceeded 1000 threshold)`}
           </div>
 
           <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #EEF2EF', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Last scan: {formatTime(latestCheck?.completed_at || device?.last_check_time || new Date().toISOString())}
+            Last scan: {formatTime(scanTime)}
           </div>
         </div>
 
@@ -157,12 +164,15 @@ export default function DashboardView({
             {device?.device_code || 'THM-0001'}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.4rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.4rem', flexWrap: 'wrap' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              <Battery size={14} color="var(--brand-primary)" /> {isOnline && device?.battery_level ? `${device.battery_level}%` : (device?.battery_level ? `${device.battery_level}%` : '96%')}
+              <Battery size={14} color="var(--brand-primary)" /> {device?.battery_level ? `${device.battery_level}%` : '100%'}
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              <Wifi size={14} color="var(--accent-gold)" /> {isOnline && device?.signal_strength ? `${device.signal_strength} dBm` : (device?.signal_strength ? `${device.signal_strength} dBm` : '-62 dBm')}
+              <Wifi size={14} color="var(--accent-gold)" /> {device?.signal_strength ? `${device.signal_strength} dBm` : '-44 dBm'}
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--brand-primary)', fontWeight: '600' }}>
+              <Activity size={14} /> Live FSR: {device?.live_fsr !== undefined && device?.live_fsr !== null ? device.live_fsr : 'Sampling'}
             </span>
           </div>
 
@@ -187,17 +197,17 @@ export default function DashboardView({
             color: 'var(--text-primary)',
             marginBottom: '0.25rem'
           }}>
-            {formatTime(latestCheck?.completed_at || device?.last_check_time || new Date().toISOString())}
+            {formatTime(scanTime)}
           </div>
 
           <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            {formatDate(latestCheck?.completed_at || device?.last_check_time || new Date().toISOString())} ({latestCheck?.check_type || 'MANUAL'})
+            {formatDate(scanTime)} ({latestCheck?.check_type || 'MANUAL'})
           </div>
 
           <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #EEF2EF', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
             Response: {isUnhealthy
-              ? `Peak FSR: ${latestCheck?.fsr_value ?? 1420} at ${latestCheck?.detection_time ?? 2.5}s (UNHEALTHY)`
-              : `Peak FSR: ${latestCheck?.fsr_value ?? 380} (Clean 30s scan - HEALTHY)`}
+              ? `Peak FSR: ${peakFsr} at ${detectionTime}s (UNHEALTHY)`
+              : `Peak FSR: ${peakFsr} (Clean 30s scan - HEALTHY)`}
           </div>
         </div>
 
@@ -272,9 +282,31 @@ export default function DashboardView({
               </div>
             </div>
 
-            <button onClick={onRefresh} className="btn btn-secondary" style={{ padding: '0 0.75rem' }} title="Refresh System Status">
-              <RotateCw size={15} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {isUnhealthy && (
+                <button
+                  onClick={onResetStatus}
+                  className="btn btn-secondary"
+                  style={{
+                    padding: '0 0.75rem',
+                    height: '34px',
+                    fontSize: '0.78rem',
+                    color: 'var(--color-success)',
+                    borderColor: 'var(--color-success)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem'
+                  }}
+                  title="Mark tree as Healthy / Clear Alert"
+                >
+                  <CheckCircle2 size={14} color="var(--color-success)" />
+                  <span>Mark Healthy</span>
+                </button>
+              )}
+              <button onClick={onRefresh} className="btn btn-secondary" style={{ padding: '0 0.75rem', height: '34px' }} title="Refresh System Status">
+                <RotateCw size={15} />
+              </button>
+            </div>
           </div>
 
           {/* Diagnostic Report Panel */}
@@ -290,8 +322,8 @@ export default function DashboardView({
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
               {isUnhealthy
-                ? `FSR reading increased more than 1000 threshold (Peak FSR: ${latestCheck?.fsr_value ?? device?.last_fsr_value ?? 1420}) during the 30-second motor evaluation window. Tree structural status is evaluated as UNHEALTHY.`
-                : `30-second inspection completed cleanly with motor active. All FSR readings remained normal (Peak FSR: ${latestCheck?.fsr_value ?? device?.last_fsr_value ?? 380}). Tree health condition is HEALTHY.`}
+                ? `FSR reading increased more than 1000 threshold (Peak FSR: ${peakFsr}) during the 30-second motor evaluation window. Tree structural status is evaluated as UNHEALTHY.`
+                : `30-second inspection completed cleanly with motor active. All FSR readings remained normal (Peak FSR: ${peakFsr}). Tree health condition is HEALTHY.`}
             </p>
           </div>
 
