@@ -141,6 +141,7 @@ export async function addHistoryRecord(record) {
   db.check_history.unshift(newRecord);
   db.device.last_tree_status = record.result;
   db.device.last_check_time = newRecord.completed_at;
+  db.device.last_fsr_value = newRecord.fsr_value;
   writeLocalDb(db);
 
   if (supabase) {
@@ -152,6 +153,8 @@ export async function addHistoryRecord(record) {
         result: newRecord.result,
         detected: newRecord.detected,
         detection_time: newRecord.detection_time,
+        duration: newRecord.duration,
+        fsr_value: newRecord.fsr_value,
         started_at: newRecord.started_at,
         completed_at: newRecord.completed_at,
         notes: newRecord.notes
