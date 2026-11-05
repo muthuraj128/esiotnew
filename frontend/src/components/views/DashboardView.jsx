@@ -32,15 +32,15 @@ export default function DashboardView({
   const isOnline = device?.is_online;
   const isDbConnected = summary?.database_connected;
   
-  // Real Tree Health Status: Determined strictly by the LATEST scan!
-  const currentStatus = latestCheck?.result || device?.last_tree_status || 'HEALTHY';
+  // Tree Health Status: ONLY from real scan results. null = no scan ever run.
+  const currentStatus = latestCheck?.result || device?.last_tree_status || null;
+  const hasEverScanned = currentStatus !== null;
   const isUnhealthy = currentStatus === 'UNHEALTHY';
-  const isHealthy = !isUnhealthy;
-  const treeStatus = isUnhealthy ? 'UNHEALTHY' : 'HEALTHY';
+  const isHealthy = currentStatus === 'HEALTHY';
 
-  const peakFsr = latestCheck?.fsr_value ?? device?.last_fsr_value ?? (isUnhealthy ? 4095 : 380);
-  const scanTime = latestCheck?.completed_at || device?.last_check_time;
-  const detectionTime = latestCheck?.detection_time ?? (isUnhealthy ? 4.72 : 30.0);
+  const peakFsr = latestCheck?.fsr_value ?? device?.last_fsr_value ?? null;
+  const scanTime = latestCheck?.completed_at || device?.last_check_time || null;
+  const detectionTime = latestCheck?.detection_time ?? null;
 
   const formatTime = (isoStr) => {
     if (!isoStr) return 'No inspection recorded';
@@ -115,9 +115,9 @@ export default function DashboardView({
             <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               TREE HEALTH STATUS
             </span>
-            <span className={isHealthy ? 'badge badge-healthy' : 'badge badge-unhealthy'}>
-              {isHealthy ? <ShieldCheck size={14} /> : <AlertTriangle size={14} />}
-              {isHealthy ? 'HEALTHY' : 'UNHEALTHY'}
+            <span className={!hasEverScanned ? 'badge badge-neutral' : (isHealthy ? 'badge badge-healthy' : 'badge badge-unhealthy')}>
+              {!hasEverScanned ? <Clock size={14} /> : (isHealthy ? <ShieldCheck size={14} /> : <AlertTriangle size={14} />)}
+              {!hasEverScanned ? 'AWAITING SCAN' : (isHealthy ? 'HEALTHY' : 'UNHEALTHY')}
             </span>
           </div>
 
@@ -125,21 +125,23 @@ export default function DashboardView({
             fontSize: '1.65rem',
             fontWeight: '800',
             fontFamily: 'var(--font-display)',
-            color: isHealthy ? 'var(--color-success)' : 'var(--color-error)',
+            color: !hasEverScanned ? 'var(--text-muted)' : (isHealthy ? 'var(--color-success)' : 'var(--color-error)'),
             marginBottom: '0.25rem',
             letterSpacing: '-0.02em'
           }}>
-            {isHealthy ? 'HEALTHY' : 'UNHEALTHY'}
+            {!hasEverScanned ? 'NO SCAN YET' : (isHealthy ? 'HEALTHY' : 'UNHEALTHY')}
           </div>
 
           <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            {isHealthy
-              ? `Normal Peak FSR: ${peakFsr} (Stable <= 1000)`
-              : `⚠️ Alert Peak FSR: ${peakFsr} (Exceeded 1000 threshold)`}
+            {!hasEverScanned
+              ? 'Press CHECK NOW to run first inspection'
+              : (isHealthy
+                ? `Normal Peak FSR: ${peakFsr} (Stable <= 1000)`
+                : `⚠️ Alert Peak FSR: ${peakFsr} (Exceeded 1000 threshold)`)}
           </div>
 
           <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #EEF2EF', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Last scan: {formatTime(scanTime)}
+            {hasEverScanned ? `Last scan: ${formatTime(scanTime)}` : 'No inspection recorded yet'}
           </div>
         </div>
 
@@ -197,17 +199,21 @@ export default function DashboardView({
             color: 'var(--text-primary)',
             marginBottom: '0.25rem'
           }}>
-            {formatTime(scanTime)}
+            {hasEverScanned ? formatTime(scanTime) : '— : —'}
           </div>
 
           <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            {formatDate(scanTime)} ({latestCheck?.check_type || 'MANUAL'})
+            {hasEverScanned
+              ? `${formatDate(scanTime)} (${latestCheck?.check_type || 'MANUAL'})`
+              : 'No inspection run yet'}
           </div>
 
           <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #EEF2EF', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Response: {isUnhealthy
-              ? `Peak FSR: ${peakFsr} at ${detectionTime}s (UNHEALTHY)`
-              : `Peak FSR: ${peakFsr} (Clean 30s scan - HEALTHY)`}
+            {hasEverScanned
+              ? (isUnhealthy
+                  ? `Peak FSR: ${peakFsr} at ${detectionTime}s (UNHEALTHY)`
+                  : `Peak FSR: ${peakFsr} (Clean 30s scan - HEALTHY)`)
+              : 'Press CHECK NOW to begin first scan'}
           </div>
         </div>
 
@@ -229,15 +235,17 @@ export default function DashboardView({
             color: 'var(--text-primary)',
             marginBottom: '0.25rem'
           }}>
-            {summary?.today_checks_completed || (summary?.history_count > 0 ? summary.history_count : 1)} Scans Today
+            {summary?.today_checks_completed || 0} Scans Today
           </div>
 
           <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            Automated Schedules Configured ({summary?.history_count || 1} Total Logs)
+            {summary?.history_count || 0} Total Logs Recorded
           </div>
 
           <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #EEF2EF', fontSize: '0.75rem', color: 'var(--brand-primary)', fontWeight: '600' }}>
-            Next schedule: 12:00 PM
+            {summary?.schedules?.some(s => s.enabled)
+              ? `Schedules Active`
+              : 'No auto-schedules active'}
           </div>
         </div>
 
@@ -321,9 +329,11 @@ export default function DashboardView({
               DIAGNOSTIC STATUS & HARDWARE REPORT
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
-              {isUnhealthy
-                ? `FSR reading increased more than 1000 threshold (Peak FSR: ${peakFsr}) during the 30-second motor evaluation window. Tree structural status is evaluated as UNHEALTHY.`
-                : `30-second inspection completed cleanly with motor active. All FSR readings remained normal (Peak FSR: ${peakFsr}). Tree health condition is HEALTHY.`}
+              {!hasEverScanned
+                ? 'No inspection has been run yet. Connect the ESP32 device and press RUN HARDWARE INSPECTION to begin your first 30-second FSR evaluation.'
+                : (isUnhealthy
+                  ? `FSR reading increased more than 1000 threshold (Peak FSR: ${peakFsr}) during the 30-second motor evaluation window. Tree structural status is evaluated as UNHEALTHY.`
+                  : `30-second inspection completed cleanly with motor active. All FSR readings remained normal (Peak FSR: ${peakFsr}). Tree health condition is HEALTHY.`)}
             </p>
           </div>
 
